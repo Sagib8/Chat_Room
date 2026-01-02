@@ -39,7 +39,7 @@ export const MessagesService = {
         content: true,
         createdAt: true,
         updatedAt: true,
-        author: { select: { id: true, username: true } },
+        author: { select: { id: true, username: true, avatarUrl: true } },
       },
     });
 
@@ -121,7 +121,7 @@ export const MessagesService = {
         content: true,
         createdAt: true,
         updatedAt: true,
-        author: { select: { id: true, username: true } },
+        author: { select: { id: true, username: true, avatarUrl: true } },
       },
     });
 
@@ -165,7 +165,7 @@ export const MessagesService = {
         content: true,
         createdAt: true,
         updatedAt: true,
-        author: { select: { id: true, username: true } },
+        author: { select: { id: true, username: true, avatarUrl: true } },
       },
     });
 

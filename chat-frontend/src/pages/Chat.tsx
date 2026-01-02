@@ -44,6 +44,12 @@ function sortByCreatedAtDesc(items: Message[]) {
   );
 }
 
+const FALLBACK_AVATAR = "/avatars/fallback.svg";
+
+function avatarSrc(url: string | null) {
+  return url && url.trim().length > 0 ? url : FALLBACK_AVATAR;
+}
+
 export function ChatPage() {
   const navigate = useNavigate();
   const { logout, accessToken, isAdmin } = useAuth();
@@ -353,11 +359,18 @@ export function ChatPage() {
                 padding: "6px 12px",
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 6,
+                gap: 10,
               }}
               title={`connections: ${u.connections}`}
             >
-              {u.username}
+              <img
+                src={avatarSrc(u.avatarUrl)}
+                alt={`${u.username} avatar`}
+                width={28}
+                height={28}
+                style={{ borderRadius: "50%", objectFit: "cover", background: "#1f2933" }}
+              />
+              <span>{u.username}</span>
               <span className="muted" style={{ fontSize: 11 }}>×{u.connections}</span>
             </span>
           ))}
@@ -373,32 +386,48 @@ export function ChatPage() {
             const isEditing = editingId === m.id;
 
             return (
-              <li key={m.id} className="surface" style={{ padding: 12 }}>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>
-                  <b>{m.author.username}</b> • {new Date(m.createdAt).toLocaleString()}
-                  {m.updatedAt ? ` • edited ${new Date(m.updatedAt).toLocaleString()}` : ""}
+              <li
+                key={m.id}
+                className="surface"
+                style={{ padding: 12, display: "grid", gridTemplateColumns: "56px 1fr", gap: 12 }}
+              >
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  <img
+                    src={avatarSrc(m.author.avatarUrl)}
+                    alt={`${m.author.username} avatar`}
+                    width={48}
+                    height={48}
+                    style={{ borderRadius: "50%", objectFit: "cover", background: "#111827" }}
+                  />
                 </div>
 
-                {!isEditing ? (
-                  <div style={{ marginTop: 6 }}>{m.content}</div>
-                ) : (
-                  <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
-                    <input
-                      style={{ flex: 1, padding: 8 }}
-                      value={editingValue}
-                      onChange={(e) => setEditingValue(e.target.value)}
-                    />
-                    <button type="button" onClick={() => saveEdit(m.id)}>Save</button>
-                    <button type="button" onClick={cancelEdit}>Cancel</button>
+                <div>
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>
+                    <b>{m.author.username}</b> • {new Date(m.createdAt).toLocaleString()}
+                    {m.updatedAt ? ` • edited ${new Date(m.updatedAt).toLocaleString()}` : ""}
                   </div>
-                )}
 
-                {!isEditing && (
-                  <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
-                    <button type="button" onClick={() => startEdit(m)}>Edit</button>
-                    <button type="button" onClick={() => onDelete(m.id)}>Delete</button>
-                  </div>
-                )}
+                  {!isEditing ? (
+                    <div style={{ marginTop: 6 }}>{m.content}</div>
+                  ) : (
+                    <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
+                      <input
+                        style={{ flex: 1, padding: 8 }}
+                        value={editingValue}
+                        onChange={(e) => setEditingValue(e.target.value)}
+                      />
+                      <button type="button" onClick={() => saveEdit(m.id)}>Save</button>
+                      <button type="button" onClick={cancelEdit}>Cancel</button>
+                    </div>
+                  )}
+
+                  {!isEditing && (
+                    <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+                      <button type="button" onClick={() => startEdit(m)}>Edit</button>
+                      <button type="button" onClick={() => onDelete(m.id)}>Delete</button>
+                    </div>
+                  )}
+                </div>
               </li>
             );
           })}

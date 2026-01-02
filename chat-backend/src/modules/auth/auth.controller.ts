@@ -55,9 +55,9 @@ function assertValidCsrf(req: Request) {
  */
 export const AuthController = {
   async register(req: Request, res: Response) {
-    const { username, password } = req.body;
+    const { username, password, avatarUrl } = req.body;
 
-    const result = await AuthService.register({ username, password });
+    const result = await AuthService.register({ username, password, avatarUrl });
 
     // Typically return the created user (without sensitive fields).
     res.status(201).json(result);

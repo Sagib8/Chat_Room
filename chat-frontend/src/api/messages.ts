@@ -8,6 +8,7 @@ export type Message = {
   author: {
     id: string;
     username: string;
+    avatarUrl: string | null;
   };
 };
 

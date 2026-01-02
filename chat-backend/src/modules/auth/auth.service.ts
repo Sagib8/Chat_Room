@@ -18,6 +18,26 @@ function normalizeUsername(username: string): string {
   return username.trim().toLowerCase();
 }
 
+function normalizeAvatarUrl(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.length > 500) {
+    throw new HttpError(400, "avatarUrl too long");
+  }
+
+  const isAllowed =
+    trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/");
+
+  if (!isAllowed) {
+    throw new HttpError(400, "avatarUrl must be a relative path or http(s) URL");
+  }
+
+  return trimmed;
+}
+
 function signAccessToken(user: { id: string; role: string }) {
   // Access token is short-lived to reduce impact if stolen.
   return jwt.sign({ role: user.role }, env.jwtAccessSecret, {
@@ -48,13 +68,22 @@ async function verifyRefreshTokenHash(hash: string, token: string): Promise<bool
 }
 
 export const AuthService = {
-  async register({ username, password }: { username: string; password: string }) {
+  async register({
+    username,
+    password,
+    avatarUrl: avatarUrlInput,
+  }: {
+    username: string;
+    password: string;
+    avatarUrl?: string | null;
+  }) {
     // Basic input checks (we will later replace with Zod validation).
     if (!username || !password) throw new HttpError(400, "username and password are required");
     if (username.length < 3) throw new HttpError(400, "username too short");
     if (password.length < 8) throw new HttpError(400, "password too short");
 
     const normalized = normalizeUsername(username);
+    const avatarUrl = normalizeAvatarUrl(avatarUrlInput);
 
     // Prevent duplicate usernames.
     const existing = await prisma.user.findUnique({ where: { username: normalized } });
@@ -64,8 +93,8 @@ export const AuthService = {
     const passwordHash = await argon2.hash(password);
 
     const user = await prisma.user.create({
-      data: { username: normalized, passwordHash },
-      select: { id: true, username: true, role: true, createdAt: true },
+      data: { username: normalized, passwordHash, avatarUrl },
+      select: { id: true, username: true, role: true, createdAt: true, avatarUrl: true },
     });
 
     /**
@@ -77,7 +106,7 @@ export const AuthService = {
       action: "AUTH_REGISTER",
       entityType: "User",
       entityId: user.id,
-      after: { username: user.username, role: user.role },
+      after: { username: user.username, role: user.role, avatarUrl: user.avatarUrl },
     });
 
     return { user };

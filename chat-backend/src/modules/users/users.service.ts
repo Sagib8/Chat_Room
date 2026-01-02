@@ -13,6 +13,7 @@ export const UsersService = {
         id: true,
         username: true,
         role: true,
+        avatarUrl: true,
         createdAt: true,
         lastLoginAt: true,
       },

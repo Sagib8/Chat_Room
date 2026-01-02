@@ -11,18 +11,19 @@ let io: Server | null = null;
 
 /**
  * Presence map (in-memory):
- * userId -> { username, connections }
+ * userId -> { username, avatarUrl, connections }
  *
  * Why connections?
  * - One user can have multiple tabs/devices connected.
  */
-const presence = new Map<string, { username: string; connections: number }>();
+const presence = new Map<string, { username: string; avatarUrl: string | null; connections: number }>();
 
 function buildPresencePayload() {
   return {
     onlineUsers: Array.from(presence.entries()).map(([id, data]) => ({
       id,
       username: data.username,
+      avatarUrl: data.avatarUrl,
       connections: data.connections,
     })),
   };
@@ -55,7 +56,7 @@ export function initSocket(httpServer: HttpServer) {
       // Fetch the user once per connection (authoritative source: DB)
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, username: true, role: true },
+        select: { id: true, username: true, role: true, avatarUrl: true },
       });
 
       if (!user) {
@@ -66,6 +67,7 @@ export function initSocket(httpServer: HttpServer) {
         id: user.id,
         role: user.role,
         username: user.username,
+        avatarUrl: user.avatarUrl ?? null,
       };
 
       return next();
@@ -75,15 +77,24 @@ export function initSocket(httpServer: HttpServer) {
   });
 
   io.on("connection", (socket) => {
-    const user = socket.data.user as { id: string; username: string; role: string };
+    const user = socket.data.user as {
+      id: string;
+      username: string;
+      role: string;
+      avatarUrl: string | null;
+    };
     const userId = user.id;
 
     // Increase connections count (supports multiple tabs)
     const existing = presence.get(userId);
     if (!existing) {
-      presence.set(userId, { username: user.username, connections: 1 });
+      presence.set(userId, { username: user.username, avatarUrl: user.avatarUrl ?? null, connections: 1 });
     } else {
-      presence.set(userId, { username: existing.username, connections: existing.connections + 1 });
+      presence.set(userId, {
+        username: existing.username,
+        avatarUrl: existing.avatarUrl,
+        connections: existing.connections + 1,
+      });
     }
 
     // Broadcast updated presence list
@@ -97,7 +108,11 @@ export function initSocket(httpServer: HttpServer) {
       if (nextCount <= 0) {
         presence.delete(userId);
       } else {
-        presence.set(userId, { username: current.username, connections: nextCount });
+        presence.set(userId, {
+          username: current.username,
+          avatarUrl: current.avatarUrl,
+          connections: nextCount,
+        });
       }
 
       io!.emit("presence:update", buildPresencePayload());

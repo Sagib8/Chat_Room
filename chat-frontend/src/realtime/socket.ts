@@ -13,6 +13,7 @@ export type PresencePayload = {
   onlineUsers: Array<{
     id: string;
     username: string;
+    avatarUrl: string | null;
     connections: number;
   }>;
 };

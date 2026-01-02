@@ -14,11 +14,11 @@ export async function login(username: string, password: string) {
   return res.data as { accessToken: string; role: Role };
 }
 
-export async function register(username: string, password: string) {
+export async function register(username: string, password: string, avatarUrl?: string | null) {
   // Creates a new user record.
-  const res = await http.post("/auth/register", { username, password });
+  const res = await http.post("/auth/register", { username, password, avatarUrl });
   return res.data as {
-    user: { id: string; username: string; role: Role; createdAt: string };
+    user: { id: string; username: string; role: Role; createdAt: string; avatarUrl: string | null };
   };
 }
 
