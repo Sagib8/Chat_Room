@@ -1,4 +1,4 @@
-# Chat Room – Full Stack
+# Chat Room
 
 Detailed setup and operations guide.
 
