@@ -14,7 +14,7 @@ export const MessagesService = {
   async createMessage(params: { authorId: string; content: string }) {
     const { authorId, content } = params;
 
-    // Basic validation (we can upgrade to Zod later)
+    // Basic validation (could be replaced by centralized schema validation)
     if (!content || typeof content !== "string") {
       throw new HttpError(400, "content is required");
     }

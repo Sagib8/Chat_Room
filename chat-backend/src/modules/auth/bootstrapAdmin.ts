@@ -8,6 +8,7 @@ import { normalizeAvatarUrl, normalizeUsername } from "./auth.utils";
  * Creates an initial admin user on startup if env vars are provided.
  * - Skips creation when username/password are missing.
  * - Does not override existing users (logs a warning instead).
+ * - Uses a fixed admin avatar (not configurable via env).
  */
 export async function ensureInitialAdmin() {
   if (!env.initialAdmin) return;

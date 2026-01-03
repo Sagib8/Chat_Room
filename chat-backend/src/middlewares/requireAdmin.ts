@@ -2,9 +2,8 @@ import type { Request, Response, NextFunction } from "express";
 import { HttpError } from "../utils/httpErrors";
 
 /**
- * requireAdmin:
- * - Expects req.user to be set by requireAuth
- * - Ensures the authenticated user has ADMIN role
+ * Guards admin-only routes.
+ * Assumes requireAuth has already attached req.user.
  */
 export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
   if (!req.user) {
