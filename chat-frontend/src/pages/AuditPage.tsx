@@ -138,6 +138,9 @@ export function AuditPage() {
           <button type="button" onClick={() => navigate("/chat")}>
             Back
           </button>
+          <button type="button" onClick={() => navigate("/admin")}>
+            Admin
+          </button>
 
           <button onClick={load} disabled={loading} type="button">
             {loading ? "Loading..." : "Refresh"}

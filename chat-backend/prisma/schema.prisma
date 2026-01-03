@@ -19,6 +19,7 @@ model User {
   avatarUrl    String?
   createdAt    DateTime @default(now())
   lastLoginAt  DateTime?
+  deletedAt    DateTime?
 
   messages          Message[]
   refreshTokens     RefreshToken[]

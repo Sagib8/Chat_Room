@@ -5,6 +5,7 @@ import { prisma } from "../../db/prisma";
 import { env } from "../../config/env";
 import { HttpError } from "../../utils/httpErrors";
 import { AuditService } from "../audit/audit.service";
+import { normalizeAvatarUrl, normalizeUsername } from "./auth.utils";
 
 /**
  * Notes on our auth design:
@@ -13,30 +14,6 @@ import { AuditService } from "../audit/audit.service";
  * - Refresh tokens are stored in DB as hashes (never plaintext).
  * - Refresh rotation: each refresh invalidates the old refresh token.
  */
-
-function normalizeUsername(username: string): string {
-  return username.trim().toLowerCase();
-}
-
-function normalizeAvatarUrl(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-
-  if (trimmed.length > 500) {
-    throw new HttpError(400, "avatarUrl too long");
-  }
-
-  const isAllowed =
-    trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/");
-
-  if (!isAllowed) {
-    throw new HttpError(400, "avatarUrl must be a relative path or http(s) URL");
-  }
-
-  return trimmed;
-}
 
 function signAccessToken(user: { id: string; role: string }) {
   // Access token is short-lived to reduce impact if stolen.

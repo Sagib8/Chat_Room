@@ -7,6 +7,10 @@ const must = (key: string) => {
   return value;
 };
 
+const initialAdminUsername = process.env.INITIAL_ADMIN_USERNAME?.trim();
+const initialAdminPassword = process.env.INITIAL_ADMIN_PASSWORD;
+const hasInitialAdmin = Boolean(initialAdminUsername && initialAdminPassword);
+
 export const env = {
   port: Number(process.env.PORT ?? 4000),
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
@@ -19,4 +23,10 @@ export const env = {
   cookieSecure:
     (process.env.COOKIE_SECURE ?? (process.env.NODE_ENV === "production" ? "true" : "false")) ===
     "true",
+  initialAdmin: hasInitialAdmin
+    ? {
+        username: initialAdminUsername!,
+        password: initialAdminPassword!,
+      }
+    : null,
 };

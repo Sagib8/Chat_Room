@@ -266,9 +266,14 @@ export function ChatPage() {
           </button>
 
           {isAdmin && (
-            <button type="button" onClick={() => navigate("/audit")}>
-              Audit
-            </button>
+            <>
+              <button type="button" onClick={() => navigate("/admin")}>
+                Admin
+              </button>
+              <button type="button" onClick={() => navigate("/audit")}>
+                Audit
+              </button>
+            </>
           )}
 
           <button type="button" onClick={logout}>

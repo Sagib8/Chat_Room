@@ -1,3 +1,4 @@
+import { Role } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import { HttpError } from "../../utils/httpErrors";
 import { AuditService } from "../audit/audit.service";
@@ -185,8 +186,8 @@ export const MessagesService = {
     return updated;
   },
 
-  async deleteMessage(params: { messageId: string; authorId: string }) {
-    const { messageId, authorId } = params;
+  async deleteMessage(params: { messageId: string; requesterId: string; requesterRole: Role }) {
+    const { messageId, requesterId, requesterRole } = params;
 
     const existing = await prisma.message.findUnique({
       where: { id: messageId },
@@ -197,7 +198,7 @@ export const MessagesService = {
     }
 
     // Authorization check
-    if (existing.authorId !== authorId) {
+    if (existing.authorId !== requesterId && requesterRole !== "ADMIN") {
       throw new HttpError(403, "you can only delete your own messages");
     }
 
@@ -213,11 +214,11 @@ export const MessagesService = {
      * Audit log: message deleted (soft delete)
      */
     await AuditService.log({
-      actorUserId: authorId,
-      action: "MESSAGE_DELETE",
+      actorUserId: requesterId,
+      action: requesterRole === "ADMIN" ? "ADMIN_MESSAGE_DELETE" : "MESSAGE_DELETE",
       entityType: "Message",
       entityId: messageId,
-      metadata: { softDelete: true },
+      metadata: { softDelete: true, authorId: existing.authorId },
     });
     // Realtime: broadcast deletion to all connected clients
     getIO().emit("message:delete", { id: messageId });

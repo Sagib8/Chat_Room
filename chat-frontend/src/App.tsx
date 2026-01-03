@@ -5,6 +5,7 @@ import { LoginPage } from "./pages/Login";
 import { ChatPage } from "./pages/Chat";
 import { AuditPage } from "./pages/AuditPage";
 import { RegisterPage } from "./pages/Register";
+import { AdminUsersPage } from "./pages/AdminUsers";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, bootstrapping } = useAuth();
@@ -51,6 +52,14 @@ function AppRoutes() {
         element={
           <RequireAdmin>
             <AuditPage />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <RequireAdmin>
+            <AdminUsersPage />
           </RequireAdmin>
         }
       />

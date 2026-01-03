@@ -62,11 +62,13 @@ export const MessagesController = {
 
 async remove(req: Request, res: Response) {
   const userId = req.user!.id;
+  const role = req.user!.role;
   const messageId = req.params.id;
 
   await MessagesService.deleteMessage({
     messageId,
-    authorId: userId,
+    requesterId: userId,
+    requesterRole: role,
   });
 
   // 204 = success, no response body
