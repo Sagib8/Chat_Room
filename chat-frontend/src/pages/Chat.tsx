@@ -17,24 +17,20 @@ import {
   type PresencePayload,
 } from "../realtime/socket";
 import { useAuth } from "../store/auth";
-
-type QuickRange = "none" | "24h" | "7d" | "30d";
+import { listUsers, type User } from "../api/users";
 
 type ListMessagesParams = {
-  limit: number;
   search?: string;
   from?: string;
   to?: string;
 };
 
-function startOfDayISO(dateStr: string) {
-  // Converts a local calendar date (YYYY-MM-DD) to an ISO timestamp at 00:00:00 local time.
-  return new Date(`${dateStr}T00:00:00`).toISOString();
-}
-
-function endOfDayISO(dateStr: string) {
-  // Converts a local calendar date (YYYY-MM-DD) to an ISO timestamp at 23:59:59.999 local time.
-  return new Date(`${dateStr}T23:59:59.999`).toISOString();
+function toIso(datetimeLocal: string) {
+  // Accepts a datetime-local string (local time) and returns ISO UTC.
+  if (!datetimeLocal) return undefined;
+  const d = new Date(datetimeLocal);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return d.toISOString();
 }
 
 function sortByCreatedAtDesc(items: Message[]) {
@@ -48,6 +44,23 @@ const FALLBACK_AVATAR = "/avatars/fallback.svg";
 
 function avatarSrc(url: string | null) {
   return url && url.trim().length > 0 ? url : FALLBACK_AVATAR;
+}
+
+function formatDateTime(iso: string) {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString("he-IL")} ${d.toLocaleTimeString("he-IL", { hour12: false })}`;
+}
+
+// Lightweight JWT decoder (no signature verification) to extract user id/role from the access token.
+function decodeAccessToken(token: string): { id: string; role?: string } | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return { id: String(payload.sub), role: payload.role };
+  } catch {
+    return null;
+  }
 }
 
 export function ChatPage() {
@@ -65,48 +78,44 @@ export function ChatPage() {
 
   // Presence state (online users)
   const [presence, setPresence] = useState<PresencePayload["onlineUsers"]>([]);
+  const onlineUserIds = useMemo(() => new Set(presence.map((u) => u.id)), [presence]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [usersError, setUsersError] = useState<string | null>(null);
 
-  // Filters
+  // Date/time filters (local datetime inputs, converted to ISO)
   const [search, setSearch] = useState("");
-  const [limit, setLimit] = useState(50);
+  const [fromDate, setFromDate] = useState(""); // e.g., 2026-01-03T12:00
+  const [toDate, setToDate] = useState(""); // e.g., 2026-01-03T18:00
 
-  // Date filters (date-only inputs for better UX)
-  const [fromDate, setFromDate] = useState(""); // YYYY-MM-DD
-  const [toDate, setToDate] = useState(""); // YYYY-MM-DD
-  const [quickRange, setQuickRange] = useState<QuickRange>("none");
+  const currentUser = useMemo(() => {
+    if (!accessToken) return null;
+    const decoded = decodeAccessToken(accessToken);
+    if (!decoded) return null;
+    const presenceUser = presence.find((u) => u.id === decoded.id);
+    return {
+      id: decoded.id,
+      username: presenceUser?.username ?? "You",
+      avatarUrl: presenceUser?.avatarUrl ?? null,
+    };
+  }, [accessToken, presence]);
 
   // Editing state (one message at a time)
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
 
-/**
- * Build the query once; quick ranges override manual dates to keep inputs predictable.
- */
   const params = useMemo<ListMessagesParams>(() => {
-    const p: ListMessagesParams = { limit };
-
+    const p: ListMessagesParams = {};
     const q = search.trim();
     if (q) p.search = q;
-
-    if (quickRange !== "none") {
-      const now = Date.now();
-      const deltaMs =
-        quickRange === "24h"
-          ? 24 * 60 * 60 * 1000
-          : quickRange === "7d"
-            ? 7 * 24 * 60 * 60 * 1000
-            : 30 * 24 * 60 * 60 * 1000;
-
-      p.from = new Date(now - deltaMs).toISOString();
-      p.to = new Date(now).toISOString();
-      return p;
-    }
-
-    if (fromDate) p.from = startOfDayISO(fromDate);
-    if (toDate) p.to = endOfDayISO(toDate);
-
+    if (fromDate) p.from = toIso(fromDate);
+    if (toDate) p.to = toIso(toDate);
     return p;
-  }, [limit, search, fromDate, toDate, quickRange]);
+  }, [search, fromDate, toDate]);
+
+  const roster = useMemo(() => {
+    const byName = [...users].sort((a, b) => a.username.localeCompare(b.username));
+    return byName.sort((a, b) => Number(onlineUserIds.has(b.id)) - Number(onlineUserIds.has(a.id)));
+  }, [users, onlineUserIds]);
 
   async function load() {
     setError(null);
@@ -177,6 +186,21 @@ export function ChatPage() {
     };
   }, [accessToken]);
 
+  useEffect(() => {
+    async function loadUsers() {
+      setUsersError(null);
+      try {
+        const all = await listUsers();
+        setUsers(all);
+      } catch (err: any) {
+        const msg = err?.response?.data?.error || err?.message || "Failed to load users";
+        setUsersError(String(msg));
+      }
+    }
+
+    loadUsers();
+  }, []);
+
   /**
    * Create message: rely on socket broadcast to update state.
    */
@@ -244,10 +268,8 @@ export function ChatPage() {
 
   function clearFilters() {
     setSearch("");
-    setLimit(50);
     setFromDate("");
     setToDate("");
-    setQuickRange("none");
     setTimeout(load, 0);
   }
 
@@ -282,7 +304,115 @@ export function ChatPage() {
         </div>
       </div>
 
+      {currentUser && (
+        <div
+          style={{
+            marginTop: 8,
+            padding: "8px 12px",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            borderLeft: "4px solid #2563eb",
+            background: "rgba(37,99,235,0.08)",
+            borderRadius: 6,
+          }}
+        >
+          <img
+            src={avatarSrc(currentUser.avatarUrl)}
+            alt="Your avatar"
+            width={32}
+            height={32}
+            style={{ borderRadius: "50%", objectFit: "cover", background: "#111827" }}
+          />
+          <span style={{ fontSize: 14, opacity: 0.7 }}>Username:</span>
+          <strong>{currentUser.username}</strong>
+        </div>
+      )}
+
       {error && <div style={{ marginTop: 12, color: "crimson" }}>{error}</div>}
+
+      <div className="surface" style={{ marginTop: 16, padding: 12 }}>
+        <div style={{ fontSize: 12, opacity: 0.8, color: "var(--muted)" }}>Users in chat:</div>
+        {usersError && <div style={{ color: "crimson", marginTop: 6 }}>{usersError}</div>}
+
+        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {roster.map((u) => {
+            const isOnline = onlineUserIds.has(u.id);
+            const connections = presence.find((p) => p.id === u.id)?.connections ?? 0;
+            return (
+              <span
+                key={u.id}
+                className="surface"
+                style={{
+                  borderRadius: 999,
+                  padding: "6px 12px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 10,
+                  opacity: isOnline ? 1 : 0.6,
+                }}
+                title={isOnline ? `Online • connections: ${connections}` : "Offline"}
+              >
+                <span
+                  aria-label={isOnline ? "online" : "offline"}
+                  style={{
+                    display: "inline-block",
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    backgroundColor: isOnline ? "#22c55e" : "#ef4444",
+                  }}
+                />
+                <img
+                  src={avatarSrc(u.avatarUrl)}
+                  alt={`${u.username} avatar`}
+                  width={28}
+                  height={28}
+                  style={{ borderRadius: "50%", objectFit: "cover", background: "#1f2933" }}
+                />
+                <span>{u.username}</span>
+                {isOnline && (
+                  <span className="muted" style={{ fontSize: 11 }}>
+                    ×{connections}
+                  </span>
+                )}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="surface" style={{ marginTop: 16, padding: 12 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <input
+            style={{ width: 220 }}
+            placeholder="Search messages by keyword"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          <label style={{ fontSize: 12, opacity: 0.8 }}>From</label>
+          <input
+            type="datetime-local"
+            value={fromDate}
+            onChange={(e) => {
+              setFromDate(e.target.value);
+            }}
+          />
+
+          <label style={{ fontSize: 12, opacity: 0.8 }}>To</label>
+          <input
+            type="datetime-local"
+            value={toDate}
+            onChange={(e) => {
+              setToDate(e.target.value);
+            }}
+          />
+
+          <button type="button" onClick={onApply}>Apply</button>
+          <button type="button" onClick={clearFilters}>Clear</button>
+        </div>
+      </div>
 
       <div className="surface" style={{ marginTop: 16, padding: 12 }}>
         <form onSubmit={onSend} style={{ display: "flex", gap: 8 }}>
@@ -294,92 +424,6 @@ export function ChatPage() {
           />
           <button disabled={sending}>{sending ? "Sending..." : "Send"}</button>
         </form>
-      </div>
-
-      <div className="surface" style={{ marginTop: 16, padding: 12 }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <input
-            style={{ width: 220 }}
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setQuickRange("none");
-            }}
-          />
-
-          <label style={{ fontSize: 12, opacity: 0.8 }}>Limit</label>
-          <select value={limit} onChange={(e) => setLimit(Number(e.target.value))}>
-            <option value={10}>10</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-          </select>
-
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <span style={{ fontSize: 12, opacity: 0.8 }}>Quick</span>
-            <button type="button" onClick={() => setQuickRange("24h")}>24h</button>
-            <button type="button" onClick={() => setQuickRange("7d")}>7d</button>
-            <button type="button" onClick={() => setQuickRange("30d")}>30d</button>
-            <button type="button" onClick={() => setQuickRange("none")}>None</button>
-          </div>
-
-          <label style={{ fontSize: 12, opacity: 0.8 }}>From</label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => {
-              setFromDate(e.target.value);
-              setQuickRange("none");
-            }}
-          />
-
-          <label style={{ fontSize: 12, opacity: 0.8 }}>To</label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => {
-              setToDate(e.target.value);
-              setQuickRange("none");
-            }}
-          />
-
-          <button type="button" onClick={onApply}>Apply</button>
-          <button type="button" onClick={clearFilters}>Clear</button>
-        </div>
-      </div>
-
-      <div className="surface" style={{ marginTop: 16, padding: 12 }}>
-        <div style={{ fontSize: 12, opacity: 0.8, color: "var(--muted)" }}>
-          Online: {presence.length}
-        </div>
-
-        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {presence.map((u) => (
-            <span
-              key={u.id}
-              className="surface"
-              style={{
-                borderRadius: 999,
-                padding: "6px 12px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 10,
-              }}
-              title={`connections: ${u.connections}`}
-            >
-              <img
-                src={avatarSrc(u.avatarUrl)}
-                alt={`${u.username} avatar`}
-                width={28}
-                height={28}
-                style={{ borderRadius: "50%", objectFit: "cover", background: "#1f2933" }}
-              />
-              <span>{u.username}</span>
-              <span className="muted" style={{ fontSize: 11 }}>×{u.connections}</span>
-            </span>
-          ))}
-        </div>
       </div>
 
       <div style={{ marginTop: 16 }}>
@@ -397,19 +441,35 @@ export function ChatPage() {
                 style={{ padding: 12, display: "grid", gridTemplateColumns: "56px 1fr", gap: 12 }}
               >
                 <div style={{ display: "flex", justifyContent: "center" }}>
-                  <img
-                    src={avatarSrc(m.author.avatarUrl)}
-                    alt={`${m.author.username} avatar`}
-                    width={48}
-                    height={48}
-                    style={{ borderRadius: "50%", objectFit: "cover", background: "#111827" }}
-                  />
+                  <div style={{ position: "relative", width: 48, height: 48 }}>
+                    <img
+                      src={avatarSrc(m.author.avatarUrl)}
+                      alt={`${m.author.username} avatar`}
+                      width={48}
+                      height={48}
+                      style={{ borderRadius: "50%", objectFit: "cover", background: "#111827" }}
+                    />
+                    <span
+                      aria-label={onlineUserIds.has(m.author.id) ? "online" : "offline"}
+                      title={onlineUserIds.has(m.author.id) ? "Online" : "Offline"}
+                      style={{
+                        position: "absolute",
+                        right: -2,
+                        bottom: -2,
+                        width: 14,
+                        height: 14,
+                        borderRadius: "50%",
+                        border: "2px solid var(--surface, #0b1224)",
+                        backgroundColor: onlineUserIds.has(m.author.id) ? "#22c55e" : "#ef4444",
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <div style={{ fontSize: 12, opacity: 0.7 }}>
-                    <b>{m.author.username}</b> • {new Date(m.createdAt).toLocaleString()}
-                    {m.updatedAt ? ` • edited ${new Date(m.updatedAt).toLocaleString()}` : ""}
+                    <b>{m.author.username}</b> • Sent: {formatDateTime(m.createdAt)}
+                    {m.updatedAt ? ` • Last edited at: ${formatDateTime(m.updatedAt)}` : ""}
                   </div>
 
                   {!isEditing ? (
