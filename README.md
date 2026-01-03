@@ -26,10 +26,9 @@ REFRESH_TTL_DAYS=7
 # INITIAL_ADMIN_USERNAME=admin
 # INITIAL_ADMIN_PASSWORD=change-me
 ```
-- When `INITIAL_ADMIN_USERNAME` and `INITIAL_ADMIN_PASSWORD` are provided, the API will create an
+- When `INITIAL_ADMIN_USERNAME` and `INITIAL_ADMIN_PASSWORD` are  provided, the API will create an
   admin user on startup if that username does not already exist. Existing users are left untouched
-  (a warning is logged instead). The admin always uses the dedicated avatar at `/avatars/admin.jpg`
-  (shipped in `chat-frontend/public/avatars/`) and cannot be customized via env vars.
+  (a warning is logged instead).
 
 ### Frontend (`chat-frontend/.env`)
 ```env
@@ -65,10 +64,6 @@ docker compose down
 - `POST /auth/refresh` – new access token from refresh cookie.
 - `POST /auth/logout` – revoke refresh.
 - `GET /messages` plus CRUD; real-time updates via Socket.IO.
-- Admin-only user management:
-  - `POST /users` – create user (USER/ADMIN role, optional avatar).
-  - `PATCH /users/:id/role` – change user role (self-demotion blocked).
-  - `DELETE /users/:id` – soft-delete a user (revokes tokens, frees username for reuse).
 
 ## Socket.IO
 - Endpoint: `http://localhost:4000` (same as API).
@@ -86,6 +81,4 @@ docker compose down
 ## Project structure (brief)
 - `chat-backend/src` – Express routes, auth/messages modules, socket, Prisma.
 - `chat-frontend/src` – React SPA (Vite); API calls in `src/api`, socket in `src/realtime`, pages in `src/pages`.
-  - `/admin` – admin console for managing users (create admin/user, change roles, delete users) and moderating messages.
-  - `/audit` – admin-only audit log viewer.
 - `docker-compose.yml` – defines db + api + frontend.
