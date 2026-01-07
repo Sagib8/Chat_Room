@@ -21,7 +21,7 @@ DATABASE_URL="postgresql://postgres:postgres@db:5432/chatdb"
 JWT_ACCESS_SECRET=...    # required
 JWT_REFRESH_SECRET=...   # required
 ACCESS_TTL_SECONDS=900   # 15 minutes
-REFRESH_TTL_DAYS=7
+REFRESH_TTL_DAYS=14
 # Optional: auto-create an admin on startup (created only if username+password are set)
 # INITIAL_ADMIN_USERNAME=admin
 # INITIAL_ADMIN_PASSWORD=change-me

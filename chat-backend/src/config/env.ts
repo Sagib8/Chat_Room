@@ -18,8 +18,8 @@ export const env = {
   databaseUrl: must("DATABASE_URL"),
   jwtAccessSecret: must("JWT_ACCESS_SECRET"),
   jwtRefreshSecret: must("JWT_REFRESH_SECRET"),
-  accessTtlSeconds: Number(process.env.ACCESS_TOKEN_TTL_SECONDS ?? "900"),
-  refreshTtlDays: Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? "14"),
+  accessTtlSeconds: Number(process.env.ACCESS_TTL_SECONDS ?? "900"),
+  refreshTtlDays: Number(process.env.REFRESH_TTL_DAYS ?? "14"),
   cookieSecure:
     (process.env.COOKIE_SECURE ?? (process.env.NODE_ENV === "production" ? "true" : "false")) ===
     "true",
