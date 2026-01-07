@@ -12,7 +12,9 @@ import { rateLimit } from "../../middlewares/rateLimit";
  */
 export const authRoutes = Router();
 
+//Rate limiters to enhance security
 const loginLimiter = rateLimit({
+  //10 requests per 10 minutes
   windowMs: 10 * 60 * 1000,
   max: 10,
   message: "Too many login attempts. Please wait before retrying.",
@@ -23,7 +25,7 @@ const refreshLimiter = rateLimit({
   max: 30,
   message: "Too many refresh attempts. Please slow down.",
 });
-
+//move on to controller
 authRoutes.post("/register", asyncHandler(AuthController.register));
 authRoutes.post("/login", loginLimiter, asyncHandler(AuthController.login));
 authRoutes.post("/refresh", refreshLimiter, asyncHandler(AuthController.refresh));

@@ -10,6 +10,7 @@ const server = http.createServer(app);
 initSocket(server);
 
 async function start() {
+  //creates the bootstrap admin if env vars are set
   await ensureInitialAdmin();
 
   server.listen(env.port, () => {
